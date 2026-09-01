@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime, timezone
 
+from .anchor import merkle_root
 from .canonical import canonical_json, sha256_hex
 from .domain import EvidenceEnvelope, LedgerEntry, PrivacyClass
 from .identity import AuthorityRegistry
@@ -36,9 +37,9 @@ class SecretPayloadRejected(EvidenceLedgerError):
 class BigBook:
     """Private authoritative proof history.
 
-    The Big Book stores signed proof envelopes and lineage, not underlying source
-    evidence. A payload may be supplied transiently for digest verification except
-    for SECRET_REGULATED material, which must be hashed before it reaches this API.
+    The in-process kernel models proof semantics. Production authorization must
+    additionally be enforced at the service/storage boundary; callers are not
+    given a generic API that enumerates every private envelope.
     """
 
     def __init__(self, registry: AuthorityRegistry) -> None:
@@ -48,9 +49,9 @@ class BigBook:
         self._receipt_index: dict[str, LedgerEntry] = {}
 
     @property
-    def entries(self) -> tuple[LedgerEntry, ...]:
-        """Internal ordered proof history used for integrity and commitment generation."""
-        return tuple(self._entries)
+    def entry_count(self) -> int:
+        """Operational metadata for the trusted Big Book service, not Little Book output."""
+        return len(self._entries)
 
     def append(
         self,
@@ -118,6 +119,12 @@ class BigBook:
         require_view(entry.envelope, principal=principal, authorities=authorities)
         return entry
 
+    def state_root(self) -> str:
+        """Return only the current cryptographic commitment, never private envelopes."""
+        if not self._entries:
+            raise EvidenceLedgerError("cannot commit an empty Big Book")
+        return merkle_root(tuple(self._entries))
+
     def verify_integrity(self) -> bool:
         seen: set[str] = set()
         for sequence, entry in enumerate(self._entries):
@@ -138,5 +145,5 @@ class BigBook:
         return True
 
 
-# Backward-compatible name for B0 callers. New code should use BigBook.
+# Backward-compatible type name for B0 callers. New code should use BigBook.
 EvidenceLedger = BigBook

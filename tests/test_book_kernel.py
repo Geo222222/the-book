@@ -14,7 +14,6 @@ from the_book import (
     LiveAnchoringDisabled,
     PayloadDigestMismatch,
     SignatureRejected,
-    merkle_root,
     sha256_hex,
     sign_evidence,
 )
@@ -114,9 +113,10 @@ def test_correction_is_new_signed_evidence_with_backward_lineage() -> None:
     )
     ledger.append(correction, payload=correction_payload, recorded_at=NOW)
 
-    assert len(ledger.entries) == 2
-    assert ledger.entries[0].envelope == original
-    assert ledger.entries[1].envelope.causation_receipt_id == "RCP-001"
+    visible = ledger.visible_entries(principal="INSTITUTION")
+    assert len(visible) == 2
+    assert visible[0].envelope == original
+    assert visible[1].envelope.causation_receipt_id == "RCP-001"
     assert ledger.verify_integrity() is True
 
 
@@ -137,13 +137,13 @@ def test_chain_tampering_is_detected() -> None:
     assert ledger.verify_integrity() is False
 
 
-def test_merkle_root_is_deterministic_and_live_anchor_is_disabled() -> None:
+def test_state_root_is_deterministic_and_live_anchor_is_disabled() -> None:
     signer, registry = setup_identity()
     ledger = EvidenceLedger(registry)
     payload = b"one"
     ledger.append(envelope(signer, payload), payload=payload, recorded_at=NOW)
-    first = merkle_root(ledger.entries)
-    second = merkle_root(ledger.entries)
+    first = ledger.state_root()
+    second = ledger.state_root()
     assert first == second
     assert len(first) == 64
     with pytest.raises(LiveAnchoringDisabled):

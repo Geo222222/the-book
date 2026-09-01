@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .canonical import canonical_json
-from .domain import EvidenceClass, EvidenceEnvelope
+from .domain import EvidenceClass, EvidenceEnvelope, PrivacyClass
 
 
 class IdentityError(ValueError):
@@ -97,12 +97,15 @@ def sign_evidence(
     subject_id: str,
     occurred_at: datetime,
     payload_digest: str,
+    privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE,
+    visibility_scope: tuple[str, ...] = ("INSTITUTION",),
     payload_ref: str | None = None,
     correlation_id: str | None = None,
     causation_receipt_id: str | None = None,
 ) -> EvidenceEnvelope:
+    """Sign a v1.1 proof envelope, including privacy and visibility in the signature."""
     unsigned = EvidenceEnvelope(
-        schema_version="1.0",
+        schema_version="1.1",
         receipt_id=receipt_id,
         producer=signer.producer,
         producer_key_id=signer.key_id,
@@ -115,6 +118,8 @@ def sign_evidence(
         correlation_id=correlation_id,
         causation_receipt_id=causation_receipt_id,
         signature="PENDING",
+        privacy_class=privacy_class,
+        visibility_scope=visibility_scope,
     )
     signature = signer.sign(canonical_json(unsigned.signing_body()))
     return replace(unsigned, signature=signature)

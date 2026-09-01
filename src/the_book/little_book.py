@@ -3,14 +3,11 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Iterable
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .anchor import merkle_root
 from .canonical import canonical_json
-from .domain import LedgerEntry
 from .identity import Ed25519ProducerSigner
 
 
@@ -42,8 +39,7 @@ class StateCommitment:
     commitment_id: str
     issuer: str
     issuer_key_id: str
-    start_sequence: int
-    end_sequence: int
+    state_epoch: str
     merkle_root: str
     issued_at: datetime
     signature: str
@@ -54,8 +50,7 @@ class StateCommitment:
             "commitment_id": self.commitment_id,
             "issuer": self.issuer,
             "issuer_key_id": self.issuer_key_id,
-            "start_sequence": self.start_sequence,
-            "end_sequence": self.end_sequence,
+            "state_epoch": self.state_epoch,
             "merkle_root": self.merkle_root,
             "issued_at": self.issued_at.isoformat(),
         }
@@ -107,7 +102,8 @@ class LittleBook:
     """Public testimony surface.
 
     It accepts only explicit public records. There is intentionally no generic
-    Big Book export or projection API.
+    Big Book export or projection API, and state commitment publication accepts a
+    root rather than private entries.
     """
 
     def __init__(self, policy: DisclosurePolicy) -> None:
@@ -124,25 +120,30 @@ class LittleBook:
         *,
         signer: Ed25519ProducerSigner,
         commitment_id: str,
-        entries: Iterable[LedgerEntry],
+        state_epoch: str,
+        merkle_root: str,
         issued_at: datetime,
     ) -> StateCommitment:
-        selected = tuple(entries)
-        if not selected:
-            raise DisclosureRejected("state commitment requires at least one Big Book entry")
         if commitment_id in self._ids:
             raise DuplicatePublicRecord(commitment_id)
+        if not state_epoch or len(state_epoch) > 128:
+            raise DisclosureRejected("state_epoch must be concise and non-empty")
+        if len(merkle_root) != 64:
+            raise DisclosureRejected("merkle_root must be a SHA-256 commitment")
+        try:
+            int(merkle_root, 16)
+        except ValueError as exc:
+            raise DisclosureRejected("merkle_root must be hexadecimal") from exc
         if issued_at.tzinfo is None or issued_at.utcoffset() is None:
             raise DisclosureRejected("issued_at must be timezone-aware")
 
         unsigned = StateCommitment(
-            schema_version="1.0",
+            schema_version="1.1",
             commitment_id=commitment_id,
             issuer=signer.producer,
             issuer_key_id=signer.key_id,
-            start_sequence=selected[0].sequence,
-            end_sequence=selected[-1].sequence,
-            merkle_root=merkle_root(selected),
+            state_epoch=state_epoch,
+            merkle_root=merkle_root,
             issued_at=issued_at,
             signature="PENDING",
         )
@@ -189,7 +190,7 @@ class LittleBook:
                 raise DisclosureRejected("expires_at must be after issued_at")
 
         unsigned = PublicAttestation(
-            schema_version="1.0",
+            schema_version="1.1",
             attestation_id=attestation_id,
             issuer=signer.producer,
             issuer_key_id=signer.key_id,

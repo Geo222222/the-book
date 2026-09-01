@@ -1,31 +1,55 @@
 # The Book Covenant
 
-The Book exists to preserve evidence across institutions and generations. Its job is memory, provenance, and proof — not authority over capital.
+These rules govern both the private Big Book and the public Little Book.
 
-## B0 invariants
+## C-001 — Provability, not total capture
 
-1. **Producer sovereignty** — Epinnox, Benjamin, The Hand, and future organs sign only their own evidence.
-2. **No impersonation** — a valid key is still rejected when it claims an event namespace it is not authorized to produce.
-3. **No private-key custody** — The Book registry contains public verification material only.
-4. **Append only** — accepted ledger entries are never edited or deleted by the domain API.
-5. **Corrections append** — a correction is a new signed envelope that causally references earlier evidence.
-6. **Digest before trust** — supplied source payloads must hash to the envelope's declared digest.
-7. **Lineage before chronology** — a causation reference must point to evidence already present in The Book.
-8. **Raw secrets stay out** — PII, credentials, signing private keys, and large private datasets are not written to blockchain payloads.
-9. **Blockchain is a proof rail** — The Book domain remains valid if the underlying chain technology changes.
-10. **No live anchor in B0** — B0 computes anchor roots but cannot publish them to a live chain.
-11. **No token ownership in B0** — fund-unit mint, burn, transfer restriction, and holder registry contracts are future milestones.
-12. **Verification is replayable** — The Book can re-verify signatures and the complete local hash chain from genesis.
+Everything material must be provable. The institution is not required to immortalize everything it knows.
 
-## Producer namespaces
+## C-002 — Minimum necessary evidence
 
-Initial event namespace ownership is:
+A proof contains only the information required to establish the institutional fact, authority, lineage, or entitlement being asserted.
 
-```text
-EPINNOX.*   -> Epinnox / The Eyes
-BENJAMIN.*  -> Benjamin / Mind, Guard, Treasury, Portfolio
-HAND.*      -> The Hand / execution
-BOOK.*      -> The Book's own anchor and verification attestations only
-```
+## C-003 — The Vault holds underlying evidence
 
-Granting a producer another namespace is an explicit authority-registry change and itself must become constitutional evidence in a later persistent implementation.
+Contracts, identity documents, financial statements, source datasets, private correspondence, credentials, regulated identifiers, and other sensitive source material belong in governed storage. The Book normally retains a digest and durable reference proving the exact evidence version relied upon.
+
+## C-004 — Big Book is private authoritative proof history
+
+The Big Book is permissioned and authoritative for institutional proof history. Membership in the institution is not blanket read access.
+
+Visibility is scoped by role, domain, matter, participant rights, delegated authority, and legitimate need.
+
+## C-005 — Little Book is public testimony only
+
+The Little Book is not a mirror, export, replica, or readable projection of the Big Book. Public records must be explicitly created for a legitimate disclosure purpose.
+
+## C-006 — Non-reconstruction
+
+The Little Book must never be sufficient to reconstruct private Big Book history or reliably derive private wealth, portfolio strategy, distributions, family disputes, private relationships, acquisition targets, confidential contracts, or exact confidential transactions unless that specific fact is intentionally disclosed.
+
+## C-007 — Secret and regulated source data never goes directly on-chain
+
+SSNs, bank credentials, identity documents, private keys, access secrets, protected family information, and comparable regulated/sensitive source material must not be stored as immutable public or private blockchain payloads.
+
+The Big Book kernel rejects raw `SECRET_REGULATED` payload bytes. Such material must be hashed inside its restricted system and referenced by proof.
+
+## C-008 — Immutable events are not immutable personal data
+
+Corrections, reversals, and superseding decisions are new events. The institution preserves the fact that history changed without requiring sensitive source data itself to become undeletable.
+
+## C-009 — No organ writes another organ's truth
+
+Benjamin proves capital decisions and authority. The Martians proves stewardship/governance events. The Hand proves execution outcomes. Epinnox proves analytical provenance. The Book verifies and preserves proofs; it does not invent domain facts.
+
+## C-010 — Public disclosure is explicit
+
+There is no automatic Big Book-to-Little Book projection. A public claim requires an approved disclosure policy and a deliberately constructed public attestation or state commitment.
+
+## C-011 — Blockchain is replaceable infrastructure
+
+No specific blockchain, consensus mechanism, vendor, or public network is constitutional. The proof contracts must survive backend migration.
+
+## C-012 — Legal truth remains external where law controls
+
+A ledger record does not by itself create legal title, family status, inheritance rights, regulated authority, securities compliance, contractual validity, or ownership where applicable law requires other instruments. The Book proves what the institution recorded and relied upon; it does not replace controlling law or documents.

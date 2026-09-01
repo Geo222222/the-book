@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timezone
 
 from .canonical import canonical_json, sha256_hex
-from .domain import EvidenceEnvelope, LedgerEntry
+from .domain import EvidenceEnvelope, LedgerEntry, PrivacyClass
 from .identity import AuthorityRegistry
+from .privacy import can_view, require_view
 
 
 class EvidenceLedgerError(RuntimeError):
@@ -27,16 +29,27 @@ class PayloadDigestMismatch(EvidenceLedgerError):
     pass
 
 
-class EvidenceLedger:
-    """B0 in-memory append-only ledger with signature and lineage verification."""
+class SecretPayloadRejected(EvidenceLedgerError):
+    pass
+
+
+class BigBook:
+    """Private authoritative proof history.
+
+    The Big Book stores signed proof envelopes and lineage, not underlying source
+    evidence. A payload may be supplied transiently for digest verification except
+    for SECRET_REGULATED material, which must be hashed before it reaches this API.
+    """
 
     def __init__(self, registry: AuthorityRegistry) -> None:
         self._registry = registry
         self._entries: list[LedgerEntry] = []
         self._receipt_ids: set[str] = set()
+        self._receipt_index: dict[str, LedgerEntry] = {}
 
     @property
     def entries(self) -> tuple[LedgerEntry, ...]:
+        """Internal ordered proof history used for integrity and commitment generation."""
         return tuple(self._entries)
 
     def append(
@@ -50,10 +63,14 @@ class EvidenceLedger:
             raise DuplicateReceipt(envelope.receipt_id)
         if not self._registry.verify(envelope):
             raise SignatureRejected("producer signature, identity, or event namespace was rejected")
+        if envelope.privacy_class is PrivacyClass.SECRET_REGULATED and payload is not None:
+            raise SecretPayloadRejected(
+                "SECRET_REGULATED source material must be hashed in its restricted system; raw bytes may not enter The Book"
+            )
         if payload is not None and sha256_hex(payload) != envelope.payload_digest:
             raise PayloadDigestMismatch("payload does not match declared digest")
         if envelope.causation_receipt_id and envelope.causation_receipt_id not in self._receipt_ids:
-            raise InvalidCausation("causation receipt must already exist in The Book")
+            raise InvalidCausation("causation receipt must already exist in the Big Book")
 
         timestamp = recorded_at or datetime.now(timezone.utc)
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
@@ -75,6 +92,30 @@ class EvidenceLedger:
         )
         self._entries.append(entry)
         self._receipt_ids.add(envelope.receipt_id)
+        self._receipt_index[envelope.receipt_id] = entry
+        return entry
+
+    def visible_entries(
+        self,
+        *,
+        principal: str,
+        authorities: Iterable[str] = (),
+    ) -> tuple[LedgerEntry, ...]:
+        return tuple(
+            entry
+            for entry in self._entries
+            if can_view(entry.envelope, principal=principal, authorities=authorities)
+        )
+
+    def get(
+        self,
+        receipt_id: str,
+        *,
+        principal: str,
+        authorities: Iterable[str] = (),
+    ) -> LedgerEntry:
+        entry = self._receipt_index[receipt_id]
+        require_view(entry.envelope, principal=principal, authorities=authorities)
         return entry
 
     def verify_integrity(self) -> bool:
@@ -95,3 +136,7 @@ class EvidenceLedger:
                 return False
             seen.add(entry.envelope.receipt_id)
         return True
+
+
+# Backward-compatible name for B0 callers. New code should use BigBook.
+EvidenceLedger = BigBook

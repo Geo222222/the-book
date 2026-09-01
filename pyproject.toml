@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "the-book"
-version = "0.1.0"
-description = "Sovereign evidence and provenance kernel for the Benjamin ecosystem"
+version = "0.2.0"
+description = "Privacy-first Big Book and Little Book proof infrastructure for institutional systems"
 requires-python = ">=3.11"
 dependencies = ["cryptography>=43"]
 

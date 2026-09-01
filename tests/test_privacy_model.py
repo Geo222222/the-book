@@ -68,6 +68,11 @@ def test_big_book_enforces_internal_least_privilege() -> None:
         book.get(entry.envelope.receipt_id, principal="UNRELATED_FAMILY_MEMBER")
 
 
+def test_big_book_has_no_unrestricted_entry_enumeration_api() -> None:
+    _, book = setup_book()
+    assert not hasattr(book, "entries")
+
+
 def test_participant_proof_can_be_scoped_to_named_participant() -> None:
     signer, book = setup_book()
     envelope, payload = proof(
@@ -93,7 +98,6 @@ def test_secret_regulated_raw_source_bytes_never_enter_big_book() -> None:
     with pytest.raises(SecretPayloadRejected):
         book.append(envelope, payload=payload, recorded_at=NOW)
 
-    # The restricted system may hash the object itself and submit only the proof.
     entry = book.append(envelope, recorded_at=NOW)
     assert entry.envelope.payload_digest == sha256_hex(payload)
     assert not hasattr(entry, "payload")
@@ -110,21 +114,29 @@ def test_secret_regulated_cannot_reference_public_storage() -> None:
         )
 
 
-def test_little_book_state_commitment_reveals_root_not_private_record() -> None:
+def state_commitment(signer, book, little):
+    return little.publish_state_commitment(
+        signer=signer,
+        commitment_id="STATE-1",
+        state_epoch="2026-09-01",
+        merkle_root=book.state_root(),
+        issued_at=NOW,
+    )
+
+
+def test_little_book_state_commitment_receives_root_not_private_entries() -> None:
     signer, book = setup_book()
     envelope, payload = proof(signer)
     book.append(envelope, payload=payload, recorded_at=NOW)
 
     little = LittleBook(DisclosurePolicy(allowed_claim_types=frozenset({"AUTHORITY_VALID"})))
-    commitment = little.publish_state_commitment(
-        signer=signer,
-        commitment_id="STATE-1",
-        entries=book.entries,
-        issued_at=NOW,
-    )
+    commitment = state_commitment(signer, book, little)
 
     wire = commitment.wire()
-    assert wire["merkle_root"]
+    assert wire["merkle_root"] == book.state_root()
+    assert wire["state_epoch"] == "2026-09-01"
+    assert "start_sequence" not in wire
+    assert "end_sequence" not in wire
     assert "payload_ref" not in wire
     assert "subject_id" not in wire
     assert "private_amount" not in str(wire)
@@ -137,12 +149,7 @@ def test_little_book_requires_explicit_approved_public_claim() -> None:
     book.append(envelope, payload=payload, recorded_at=NOW)
 
     little = LittleBook(DisclosurePolicy(allowed_claim_types=frozenset({"AUTHORITY_VALID"})))
-    state = little.publish_state_commitment(
-        signer=signer,
-        commitment_id="STATE-1",
-        entries=book.entries,
-        issued_at=NOW,
-    )
+    state = state_commitment(signer, book, little)
 
     with pytest.raises(DisclosureRejected):
         little.publish_attestation(
@@ -161,12 +168,7 @@ def test_little_book_named_subjects_are_opt_in() -> None:
     envelope, payload = proof(signer)
     book.append(envelope, payload=payload, recorded_at=NOW)
     little = LittleBook(DisclosurePolicy(allowed_claim_types=frozenset({"AUTHORITY_VALID"})))
-    state = little.publish_state_commitment(
-        signer=signer,
-        commitment_id="STATE-1",
-        entries=book.entries,
-        issued_at=NOW,
-    )
+    state = state_commitment(signer, book, little)
 
     with pytest.raises(DisclosureRejected):
         little.publish_attestation(
@@ -192,12 +194,7 @@ def test_explicit_public_attestation_contains_testimony_not_big_book_evidence() 
             allow_named_subjects=True,
         )
     )
-    state = little.publish_state_commitment(
-        signer=signer,
-        commitment_id="STATE-1",
-        entries=book.entries,
-        issued_at=NOW,
-    )
+    state = state_commitment(signer, book, little)
     attestation = little.publish_attestation(
         signer=signer,
         attestation_id="PUB-1",

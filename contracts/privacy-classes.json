@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "principle": "minimum necessary evidence",
+  "classes": {
+    "PUBLIC_PROOF": {
+      "audience": ["PUBLIC"],
+      "durability": "DURABLE",
+      "direct_publication_allowed": true
+    },
+    "PARTICIPANT_PROOF": {
+      "audience": ["AUTHORIZED_PARTICIPANTS", "AUTHORIZED_ROLES"],
+      "durability": "DURABLE",
+      "direct_publication_allowed": false
+    },
+    "CONFIDENTIAL_EVIDENCE": {
+      "audience": ["SELECTED_ROLES", "SELECTED_MATTERS"],
+      "durability": "POLICY_GOVERNED",
+      "direct_publication_allowed": false
+    },
+    "SECRET_REGULATED": {
+      "audience": ["EXTREMELY_RESTRICTED_SYSTEMS"],
+      "durability": "POLICY_GOVERNED",
+      "direct_publication_allowed": false,
+      "raw_blockchain_storage": "PROHIBITED"
+    }
+  },
+  "little_book": {
+    "rule": "proofs only; never a reconstructable projection of the Big Book"
+  }
+}

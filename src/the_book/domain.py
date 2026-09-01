@@ -52,15 +52,15 @@ class EvidenceEnvelope:
     producer_key_id: str
     event_type: str
     evidence_class: EvidenceClass
-    privacy_class: PrivacyClass
     subject_id: str
     occurred_at: datetime
     payload_digest: str
     payload_ref: str | None
-    visibility_scope: tuple[str, ...]
     correlation_id: str | None
     causation_receipt_id: str | None
     signature: str
+    privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE
+    visibility_scope: tuple[str, ...] = ("INSTITUTION",)
 
     def __post_init__(self) -> None:
         for name in ("schema_version", "receipt_id", "producer", "producer_key_id", "event_type", "subject_id"):
@@ -83,14 +83,14 @@ class EvidenceEnvelope:
             "producer_key_id": self.producer_key_id,
             "event_type": self.event_type,
             "evidence_class": self.evidence_class.value,
-            "privacy_class": self.privacy_class.value,
             "subject_id": self.subject_id,
             "occurred_at": self.occurred_at.isoformat(),
             "payload_digest": self.payload_digest,
             "payload_ref": self.payload_ref,
-            "visibility_scope": list(self.visibility_scope),
             "correlation_id": self.correlation_id,
             "causation_receipt_id": self.causation_receipt_id,
+            "privacy_class": self.privacy_class.value,
+            "visibility_scope": list(self.visibility_scope),
         }
 
     def wire(self) -> dict[str, object]:

@@ -44,6 +44,24 @@ def _require_visibility(privacy_class: PrivacyClass, visibility_scope: tuple[str
         raise ValueError("non-public evidence cannot include PUBLIC visibility")
 
 
+def _require_dependencies(
+    *,
+    receipt_id: str,
+    causation_receipt_id: str | None,
+    evidence_receipt_ids: tuple[str, ...],
+) -> None:
+    if any(not item for item in evidence_receipt_ids):
+        raise ValueError("evidence_receipt_ids must contain only non-empty receipt ids")
+    if len(set(evidence_receipt_ids)) != len(evidence_receipt_ids):
+        raise ValueError("evidence_receipt_ids must not contain duplicates")
+    if receipt_id in evidence_receipt_ids:
+        raise ValueError("an evidence envelope cannot depend on itself")
+    if causation_receipt_id == receipt_id:
+        raise ValueError("an evidence envelope cannot cause itself")
+    if causation_receipt_id is not None and causation_receipt_id in evidence_receipt_ids:
+        raise ValueError("primary causation must not be duplicated in evidence_receipt_ids")
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceEnvelope:
     schema_version: str
@@ -61,14 +79,24 @@ class EvidenceEnvelope:
     signature: str
     privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE
     visibility_scope: tuple[str, ...] = ("INSTITUTION",)
+    evidence_receipt_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name in ("schema_version", "receipt_id", "producer", "producer_key_id", "event_type", "subject_id"):
             if not getattr(self, name):
                 raise ValueError(f"{name} is required")
+        if self.schema_version not in {"1.1", "2.0"}:
+            raise ValueError("schema_version must be 1.1 or 2.0")
+        if self.schema_version == "1.1" and self.evidence_receipt_ids:
+            raise ValueError("v1.1 envelopes cannot carry v2 evidence dependencies")
         _require_aware(self.occurred_at, "occurred_at")
         _require_digest(self.payload_digest)
         _require_visibility(self.privacy_class, self.visibility_scope)
+        _require_dependencies(
+            receipt_id=self.receipt_id,
+            causation_receipt_id=self.causation_receipt_id,
+            evidence_receipt_ids=self.evidence_receipt_ids,
+        )
         if self.privacy_class is PrivacyClass.SECRET_REGULATED and self.payload_ref is not None:
             if not self.payload_ref.startswith(("vault://", "secure://", "kms://")):
                 raise ValueError("SECRET_REGULATED evidence must reference restricted storage")
@@ -76,7 +104,7 @@ class EvidenceEnvelope:
             raise ValueError("signature is required")
 
     def signing_body(self) -> dict[str, object]:
-        return {
+        body: dict[str, object] = {
             "schema_version": self.schema_version,
             "receipt_id": self.receipt_id,
             "producer": self.producer,
@@ -92,6 +120,9 @@ class EvidenceEnvelope:
             "privacy_class": self.privacy_class.value,
             "visibility_scope": list(self.visibility_scope),
         }
+        if self.schema_version == "2.0":
+            body["evidence_receipt_ids"] = list(self.evidence_receipt_ids)
+        return body
 
     def wire(self) -> dict[str, object]:
         return {**self.signing_body(), "signature": self.signature}

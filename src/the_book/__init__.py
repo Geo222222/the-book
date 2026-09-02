@@ -4,6 +4,7 @@ from .anchor import AnchorReceipt, DisabledAnchor, LiveAnchoringDisabled, merkle
 from .canonical import canonical_json, sha256_hex
 from .domain import EvidenceClass, EvidenceEnvelope, LedgerEntry, PrivacyClass
 from .identity import AuthorityRegistry, Ed25519ProducerSigner, IdentityError, sign_evidence, sign_evidence_v2
+from .ingest import BookIngestService, WireEnvelopeError, evidence_envelope_from_wire
 from .journal import (
     JournalCommitment,
     JournalError,
@@ -54,6 +55,7 @@ __all__ = [
     "AnchorReceipt",
     "AuthorityRegistry",
     "BigBook",
+    "BookIngestService",
     "BookReceipt",
     "DisabledAnchor",
     "DisclosurePolicy",
@@ -88,8 +90,10 @@ __all__ = [
     "SignatureRejected",
     "StateCommitment",
     "V2_NAMESPACE_AUTHORITIES",
+    "WireEnvelopeError",
     "can_view",
     "canonical_json",
+    "evidence_envelope_from_wire",
     "journal_leaf",
     "journal_merkle_proof",
     "merkle_root",

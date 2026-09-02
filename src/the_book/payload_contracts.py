@@ -128,6 +128,10 @@ def validate_benjamin_decision(payload: bytes) -> Mapping[str, Any]:
     side = _require_string(value, "side")
     if side not in BENJAMIN_SIDES:
         raise DomainPayloadError("side is invalid")
+    if action in {"NO_TRADE", "HOLD"} and side != "NONE":
+        raise DomainPayloadError(f"{action} side must be NONE")
+    if action in {"ENTER", "REDUCE", "EXIT"} and side == "NONE":
+        raise DomainPayloadError(f"{action} side must be BUY or SELL")
     _require_positive_int(value, "horizon_ms")
     size = value.get("intended_size")
     if not isinstance(size, dict):
@@ -161,8 +165,12 @@ def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mappi
         value = validate_zlj_intelligence(payload)
         if value["intelligence_id"] != envelope.subject_id:
             raise DomainPayloadError("ZLJ intelligence_id must equal envelope subject_id")
-        if value["known_at"] != envelope.known_at.isoformat():
+        payload_known_at = _parse_timestamp(value, "known_at")
+        payload_valid_until = _parse_timestamp(value, "valid_until", nullable=True)
+        if payload_known_at != envelope.known_at:
             raise DomainPayloadError("ZLJ payload known_at must equal envelope known_at")
+        if payload_valid_until != envelope.valid_until:
+            raise DomainPayloadError("ZLJ payload valid_until must equal envelope valid_until")
         return value
     if envelope.event_type == "BENJAMIN.DECISION":
         value = validate_benjamin_decision(payload)
@@ -173,5 +181,8 @@ def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mappi
             lineage_ids.add(envelope.causation_receipt_id)
         if set(value["evidence_receipt_ids"]) != lineage_ids:
             raise DomainPayloadError("Benjamin decision evidence_receipt_ids must equal Book lineage dependencies")
+        expires_at = _parse_timestamp(value, "expires_at")
+        if expires_at != envelope.valid_until:
+            raise DomainPayloadError("Benjamin expires_at must equal envelope valid_until")
         return value
     return None

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Mapping
 
 from .domain import EvidenceEnvelope
@@ -16,6 +17,7 @@ BENJAMIN_SIDES = {"BUY", "SELL", "NONE"}
 SIZE_UNITS = {"BASE", "QUOTE", "PERCENT_EQUITY", "RISK_FRACTION"}
 ZLJ_QUALIFICATION_STATES = {"QUALIFIED", "DEGRADED", "BLOCKED"}
 WATCHMAN_RESULTS = {"AUTHORIZE", "BLOCK"}
+HAND_EXECUTION_STATUSES = {"ACCEPTED", "FILLED", "PARTIAL", "REJECTED", "CANCELLED", "DRY_RUN"}
 
 
 def _object(payload: bytes) -> Mapping[str, Any]:
@@ -84,6 +86,23 @@ def _require_hex_digest(value: Mapping[str, Any], field: str) -> str:
     except ValueError as exc:
         raise DomainPayloadError(f"{field} must be hexadecimal") from exc
     return item.lower()
+
+
+def _require_decimal_string(
+    value: Mapping[str, Any], field: str, *, nullable: bool = False, positive: bool = False
+) -> Decimal | None:
+    item = value.get(field)
+    if item is None and nullable:
+        return None
+    if not isinstance(item, str) or not item:
+        raise DomainPayloadError(f"{field} must be a decimal string")
+    try:
+        result = Decimal(item)
+    except InvalidOperation as exc:
+        raise DomainPayloadError(f"{field} must be a decimal string") from exc
+    if not result.is_finite() or (positive and result <= 0):
+        raise DomainPayloadError(f"{field} must be finite" + (" and positive" if positive else ""))
+    return result
 
 
 def _parse_timestamp(value: Mapping[str, Any], field: str, *, nullable: bool = False) -> datetime | None:
@@ -218,6 +237,42 @@ def validate_watchman_governance(payload: bytes) -> Mapping[str, Any]:
     return value
 
 
+def validate_hand_execution(payload: bytes) -> Mapping[str, Any]:
+    value = _object(payload)
+    if value.get("schema_version") != "2.0":
+        raise DomainPayloadError("Hand execution schema_version must be 2.0")
+    _require_string(value, "receipt_id")
+    _require_string(value, "authorization_book_receipt_id")
+    _require_string(value, "governance_id")
+    _require_string(value, "capability")
+    _require_hex_digest(value, "idempotency_key")
+    _require_string(value, "instrument")
+    side = _require_string(value, "side")
+    if side not in {"BUY", "SELL"}:
+        raise DomainPayloadError("Hand execution side must be BUY or SELL")
+    requested_quantity = _require_decimal_string(value, "requested_quantity", positive=True)
+    status = _require_string(value, "status")
+    if status not in HAND_EXECUTION_STATUSES:
+        raise DomainPayloadError("Hand execution status is invalid")
+    _require_string(value, "venue_order_id", nullable=True)
+    executed_quantity = _require_decimal_string(value, "executed_quantity", nullable=True)
+    average_price = _require_decimal_string(value, "average_price", nullable=True)
+    executed_at = _parse_timestamp(value, "executed_at")
+    message = value.get("message")
+    if message is not None and not isinstance(message, str):
+        raise DomainPayloadError("message must be a string or null")
+    if executed_quantity is not None and executed_quantity < 0:
+        raise DomainPayloadError("executed_quantity cannot be negative")
+    if average_price is not None and average_price <= 0:
+        raise DomainPayloadError("average_price must be positive when present")
+    if status == "DRY_RUN" and any(
+        item is not None for item in (value.get("venue_order_id"), executed_quantity, average_price)
+    ):
+        raise DomainPayloadError("DRY_RUN must not claim venue order, executed quantity, or price")
+    assert requested_quantity is not None and executed_at is not None
+    return value
+
+
 def validate_journal_commitment(payload: bytes) -> Mapping[str, Any]:
     value = _object(payload)
     if value.get("schema_version") != "1.0":
@@ -284,6 +339,16 @@ def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mappi
         expires_at = _parse_timestamp(value, "expires_at", nullable=True)
         if expected_result == "AUTHORIZE" and expires_at != envelope.valid_until:
             raise DomainPayloadError("Watchman authorization expiry must equal envelope valid_until")
+        return value
+    if envelope.event_type == "HAND.EXECUTION":
+        value = validate_hand_execution(payload)
+        if value["receipt_id"] != envelope.subject_id:
+            raise DomainPayloadError("Hand receipt_id must equal envelope subject_id")
+        if value["authorization_book_receipt_id"] != envelope.causation_receipt_id:
+            raise DomainPayloadError("Hand authorization_book_receipt_id must equal primary causation receipt")
+        executed_at = _parse_timestamp(value, "executed_at")
+        if executed_at != envelope.occurred_at or executed_at != envelope.known_at:
+            raise DomainPayloadError("Hand executed_at must equal envelope occurred_at and known_at")
         return value
     if envelope.event_type in {"ZLJ.JOURNAL_COMMITMENT", "BENJAMIN.JOURNAL_COMMITMENT"}:
         value = validate_journal_commitment(payload)

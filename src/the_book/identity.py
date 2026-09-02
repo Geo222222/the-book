@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from .canonical import canonical_json
 from .domain import EvidenceClass, EvidenceEnvelope, PrivacyClass
+from .namespaces import require_v2_namespace_authority
 
 
 class IdentityError(ValueError):
@@ -69,6 +70,7 @@ class AuthorityRegistry:
             raise IdentityError("at least one event prefix is required")
         if key_id in self._identities:
             raise IdentityError("key_id is already registered")
+        require_v2_namespace_authority(producer=producer, prefixes=prefixes)
         self._identities[key_id] = PublicIdentity(producer, key_id, bytes(public_key), prefixes)
 
     def verify(self, envelope: EvidenceEnvelope) -> bool:

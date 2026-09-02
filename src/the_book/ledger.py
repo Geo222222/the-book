@@ -110,6 +110,14 @@ class BigBook:
                 raise InvalidCausation(
                     "Watchman governance must causally reference an existing BENJAMIN.DECISION receipt"
                 )
+        if envelope.event_type == "HAND.EXECUTION":
+            if envelope.causation_receipt_id is None:
+                raise InvalidCausation("Hand execution requires a Watchman authorization causation receipt")
+            parent = self._receipt_index.get(envelope.causation_receipt_id)
+            if parent is None or parent.envelope.event_type != "WATCHMAN.AUTHORIZATION":
+                raise InvalidCausation(
+                    "HAND.EXECUTION must causally reference an existing WATCHMAN.AUTHORIZATION receipt"
+                )
 
     def append(
         self,
@@ -245,6 +253,11 @@ class BigBook:
                 parent_id = entry.envelope.causation_receipt_id
                 parent = self._receipt_index.get(parent_id) if parent_id else None
                 if parent is None or parent.envelope.event_type != "BENJAMIN.DECISION":
+                    return False
+            if entry.envelope.event_type == "HAND.EXECUTION":
+                parent_id = entry.envelope.causation_receipt_id
+                parent = self._receipt_index.get(parent_id) if parent_id else None
+                if parent is None or parent.envelope.event_type != "WATCHMAN.AUTHORIZATION":
                     return False
             if any(receipt_id not in seen for receipt_id in entry.envelope.evidence_receipt_ids):
                 return False

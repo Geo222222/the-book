@@ -26,6 +26,13 @@ class AnchorAdapter(Protocol):
     def anchor(self, *, root_hash: str, start_sequence: int, end_sequence: int) -> AnchorReceipt: ...
 
 
+class DisabledAnchor:
+    """Fail-closed placeholder proving live anchoring is not configured."""
+
+    def anchor(self, *, root_hash: str, start_sequence: int, end_sequence: int) -> AnchorReceipt:
+        raise LiveAnchoringDisabled("B0 has no live blockchain anchor adapter")
+
+
 def merkle_root_hashes(hashes: Sequence[str]) -> str:
     if not hashes:
         raise ValueError("at least one hash is required")

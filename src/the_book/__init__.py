@@ -16,6 +16,7 @@ from .journal import (
 )
 from .ledger import (
     BigBook,
+    BookReceipt,
     DuplicateReceipt,
     EvidenceLedger,
     EvidenceLedgerError,
@@ -53,6 +54,7 @@ __all__ = [
     "AnchorReceipt",
     "AuthorityRegistry",
     "BigBook",
+    "BookReceipt",
     "DisabledAnchor",
     "DisclosurePolicy",
     "DisclosureRejected",

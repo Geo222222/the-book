@@ -10,6 +10,7 @@ from .ledger import (
     EvidenceLedger,
     EvidenceLedgerError,
     InvalidCausation,
+    InvalidDomainPayload,
     InvalidEvidenceDependency,
     InvalidRecordingTime,
     PayloadDigestMismatch,
@@ -27,6 +28,12 @@ from .little_book import (
     verify_public_record,
 )
 from .namespaces import NamespaceAuthority, NamespaceAuthorityError, V2_NAMESPACE_AUTHORITIES
+from .payload_contracts import (
+    DomainPayloadError,
+    validate_benjamin_decision,
+    validate_target_payload,
+    validate_zlj_intelligence,
+)
 from .privacy import AccessDenied, can_view, require_view
 from .scoped import sign_scoped_evidence
 
@@ -38,6 +45,7 @@ __all__ = [
     "DisabledAnchor",
     "DisclosurePolicy",
     "DisclosureRejected",
+    "DomainPayloadError",
     "DuplicatePublicRecord",
     "DuplicateReceipt",
     "Ed25519ProducerSigner",
@@ -47,6 +55,7 @@ __all__ = [
     "EvidenceLedgerError",
     "IdentityError",
     "InvalidCausation",
+    "InvalidDomainPayload",
     "InvalidEvidenceDependency",
     "InvalidRecordingTime",
     "LedgerEntry",
@@ -70,5 +79,8 @@ __all__ = [
     "sign_evidence",
     "sign_evidence_v2",
     "sign_scoped_evidence",
+    "validate_benjamin_decision",
+    "validate_target_payload",
+    "validate_zlj_intelligence",
     "verify_public_record",
 ]

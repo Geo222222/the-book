@@ -71,7 +71,13 @@ class AuthorityRegistry:
         if key_id in self._identities:
             raise IdentityError("key_id is already registered")
         require_v2_namespace_authority(producer=producer, prefixes=prefixes)
-        self._identities[key_id] = PublicIdentity(producer, key_id, bytes(public_key), prefixes)
+        candidate_key = bytes(public_key)
+        for identity in self._identities.values():
+            if identity.public_key == candidate_key and identity.producer != producer:
+                raise IdentityError(
+                    "a signing public key cannot be shared across constitutional producers"
+                )
+        self._identities[key_id] = PublicIdentity(producer, key_id, candidate_key, prefixes)
 
     def verify(self, envelope: EvidenceEnvelope) -> bool:
         identity = self._identities.get(envelope.producer_key_id)

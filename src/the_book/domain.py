@@ -23,6 +23,11 @@ def _require_aware(value: datetime, field: str) -> None:
         raise ValueError(f"{field} must be timezone-aware")
 
 
+def _require_optional_aware(value: datetime | None, field: str) -> None:
+    if value is not None:
+        _require_aware(value, field)
+
+
 def _require_digest(value: str, field: str = "payload_digest") -> None:
     if len(value) != 64:
         raise ValueError(f"{field} must be a 64-character SHA-256 hex digest")
@@ -62,6 +67,33 @@ def _require_dependencies(
         raise ValueError("primary causation must not be duplicated in evidence_receipt_ids")
 
 
+def _require_v2_timing(
+    *,
+    occurred_at: datetime,
+    source_event_at: datetime | None,
+    known_at: datetime | None,
+    produced_at: datetime | None,
+    valid_from: datetime | None,
+    valid_until: datetime | None,
+) -> None:
+    for value, field in (
+        (source_event_at, "source_event_at"),
+        (known_at, "known_at"),
+        (produced_at, "produced_at"),
+        (valid_from, "valid_from"),
+        (valid_until, "valid_until"),
+    ):
+        _require_optional_aware(value, field)
+    if known_at is None or produced_at is None:
+        raise ValueError("v2 envelopes require known_at and produced_at")
+    if occurred_at > produced_at:
+        raise ValueError("occurred_at cannot be after produced_at")
+    if known_at > produced_at:
+        raise ValueError("known_at cannot be after produced_at")
+    if valid_from is not None and valid_until is not None and valid_until < valid_from:
+        raise ValueError("valid_until cannot be before valid_from")
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceEnvelope:
     schema_version: str
@@ -80,6 +112,11 @@ class EvidenceEnvelope:
     privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE
     visibility_scope: tuple[str, ...] = ("INSTITUTION",)
     evidence_receipt_ids: tuple[str, ...] = ()
+    source_event_at: datetime | None = None
+    known_at: datetime | None = None
+    produced_at: datetime | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
 
     def __post_init__(self) -> None:
         for name in ("schema_version", "receipt_id", "producer", "producer_key_id", "event_type", "subject_id"):
@@ -87,9 +124,30 @@ class EvidenceEnvelope:
                 raise ValueError(f"{name} is required")
         if self.schema_version not in {"1.1", "2.0"}:
             raise ValueError("schema_version must be 1.1 or 2.0")
-        if self.schema_version == "1.1" and self.evidence_receipt_ids:
-            raise ValueError("v1.1 envelopes cannot carry v2 evidence dependencies")
         _require_aware(self.occurred_at, "occurred_at")
+        if self.schema_version == "1.1":
+            if self.evidence_receipt_ids:
+                raise ValueError("v1.1 envelopes cannot carry v2 evidence dependencies")
+            if any(
+                value is not None
+                for value in (
+                    self.source_event_at,
+                    self.known_at,
+                    self.produced_at,
+                    self.valid_from,
+                    self.valid_until,
+                )
+            ):
+                raise ValueError("v1.1 envelopes cannot carry v2 timing fields")
+        else:
+            _require_v2_timing(
+                occurred_at=self.occurred_at,
+                source_event_at=self.source_event_at,
+                known_at=self.known_at,
+                produced_at=self.produced_at,
+                valid_from=self.valid_from,
+                valid_until=self.valid_until,
+            )
         _require_digest(self.payload_digest)
         _require_visibility(self.privacy_class, self.visibility_scope)
         _require_dependencies(
@@ -121,7 +179,16 @@ class EvidenceEnvelope:
             "visibility_scope": list(self.visibility_scope),
         }
         if self.schema_version == "2.0":
-            body["evidence_receipt_ids"] = list(self.evidence_receipt_ids)
+            body.update(
+                {
+                    "evidence_receipt_ids": list(self.evidence_receipt_ids),
+                    "source_event_at": self.source_event_at.isoformat() if self.source_event_at else None,
+                    "known_at": self.known_at.isoformat() if self.known_at else None,
+                    "produced_at": self.produced_at.isoformat() if self.produced_at else None,
+                    "valid_from": self.valid_from.isoformat() if self.valid_from else None,
+                    "valid_until": self.valid_until.isoformat() if self.valid_until else None,
+                }
+            )
         return body
 
     def wire(self) -> dict[str, object]:

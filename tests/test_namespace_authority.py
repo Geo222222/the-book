@@ -1,3 +1,4 @@
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 import pytest
@@ -7,7 +8,10 @@ from the_book.namespaces import NamespaceAuthorityError
 
 
 def public_key_bytes() -> bytes:
-    return Ed25519PrivateKey.generate().public_key().public_bytes_raw()
+    return Ed25519PrivateKey.generate().public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
 
 
 def test_reserved_namespace_accepts_constitutional_owner() -> None:

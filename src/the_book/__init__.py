@@ -1,9 +1,19 @@
 """The Book: private proof history plus public testimony."""
 
-from .anchor import AnchorReceipt, DisabledAnchor, LiveAnchoringDisabled, merkle_root
+from .anchor import AnchorReceipt, DisabledAnchor, LiveAnchoringDisabled, merkle_root, merkle_root_hashes
 from .canonical import canonical_json, sha256_hex
 from .domain import EvidenceClass, EvidenceEnvelope, LedgerEntry, PrivacyClass
 from .identity import AuthorityRegistry, Ed25519ProducerSigner, IdentityError, sign_evidence, sign_evidence_v2
+from .journal import (
+    JournalCommitment,
+    JournalError,
+    JournalLeaf,
+    MerkleProofNode,
+    journal_leaf,
+    journal_merkle_proof,
+    seal_journal,
+    verify_journal_inclusion,
+)
 from .ledger import (
     BigBook,
     DuplicateReceipt,
@@ -31,6 +41,7 @@ from .namespaces import NamespaceAuthority, NamespaceAuthorityError, V2_NAMESPAC
 from .payload_contracts import (
     DomainPayloadError,
     validate_benjamin_decision,
+    validate_journal_commitment,
     validate_target_payload,
     validate_zlj_intelligence,
 )
@@ -58,10 +69,14 @@ __all__ = [
     "InvalidDomainPayload",
     "InvalidEvidenceDependency",
     "InvalidRecordingTime",
+    "JournalCommitment",
+    "JournalError",
+    "JournalLeaf",
     "LedgerEntry",
     "LittleBook",
     "LittleBookError",
     "LiveAnchoringDisabled",
+    "MerkleProofNode",
     "NamespaceAuthority",
     "NamespaceAuthorityError",
     "PayloadDigestMismatch",
@@ -73,14 +88,20 @@ __all__ = [
     "V2_NAMESPACE_AUTHORITIES",
     "can_view",
     "canonical_json",
+    "journal_leaf",
+    "journal_merkle_proof",
     "merkle_root",
+    "merkle_root_hashes",
     "require_view",
+    "seal_journal",
     "sha256_hex",
     "sign_evidence",
     "sign_evidence_v2",
     "sign_scoped_evidence",
     "validate_benjamin_decision",
+    "validate_journal_commitment",
     "validate_target_payload",
     "validate_zlj_intelligence",
+    "verify_journal_inclusion",
     "verify_public_record",
 ]

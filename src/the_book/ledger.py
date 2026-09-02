@@ -30,6 +30,10 @@ class InvalidEvidenceDependency(EvidenceLedgerError):
     pass
 
 
+class InvalidRecordingTime(EvidenceLedgerError):
+    pass
+
+
 class PayloadDigestMismatch(EvidenceLedgerError):
     pass
 
@@ -90,6 +94,8 @@ class BigBook:
         timestamp = recorded_at or datetime.now(timezone.utc)
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             raise EvidenceLedgerError("recorded_at must be timezone-aware")
+        if envelope.schema_version == "2.0" and envelope.produced_at is not None and timestamp < envelope.produced_at:
+            raise InvalidRecordingTime("recorded_at cannot be before v2 produced_at")
         previous_hash = self._entries[-1].entry_hash if self._entries else "GENESIS"
         chain_body = {
             "sequence": len(self._entries),
@@ -153,6 +159,9 @@ class BigBook:
                 return False
             if any(receipt_id not in seen for receipt_id in entry.envelope.evidence_receipt_ids):
                 return False
+            if entry.envelope.schema_version == "2.0" and entry.envelope.produced_at is not None:
+                if entry.recorded_at < entry.envelope.produced_at:
+                    return False
             if not self._registry.verify(entry.envelope):
                 return False
             if sha256_hex(canonical_json(entry.chain_body())) != entry.entry_hash:

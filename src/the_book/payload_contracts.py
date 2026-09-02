@@ -15,6 +15,7 @@ BENJAMIN_ACTIONS = {"ENTER", "HOLD", "REDUCE", "EXIT", "NO_TRADE"}
 BENJAMIN_SIDES = {"BUY", "SELL", "NONE"}
 SIZE_UNITS = {"BASE", "QUOTE", "PERCENT_EQUITY", "RISK_FRACTION"}
 ZLJ_QUALIFICATION_STATES = {"QUALIFIED", "DEGRADED", "BLOCKED"}
+WATCHMAN_RESULTS = {"AUTHORIZE", "BLOCK"}
 
 
 def _object(payload: bytes) -> Mapping[str, Any]:
@@ -169,6 +170,54 @@ def validate_benjamin_decision(payload: bytes) -> Mapping[str, Any]:
     return value
 
 
+def validate_watchman_governance(payload: bytes) -> Mapping[str, Any]:
+    value = _object(payload)
+    if value.get("schema_version") != "1.0":
+        raise DomainPayloadError("Watchman governance schema_version must be 1.0")
+    _require_string(value, "governance_id")
+    _require_string(value, "decision_receipt_id")
+    _require_string(value, "decision_id")
+    result = _require_string(value, "result")
+    if result not in WATCHMAN_RESULTS:
+        raise DomainPayloadError("Watchman result must be AUTHORIZE or BLOCK")
+    _require_string(value, "policy_version")
+    checks = value.get("checks")
+    if not isinstance(checks, list) or not checks:
+        raise DomainPayloadError("Watchman checks must be a non-empty array")
+    for check in checks:
+        if not isinstance(check, dict):
+            raise DomainPayloadError("Watchman check must be an object")
+        _require_string(check, "check_id")
+        status = _require_string(check, "status")
+        if status not in {"PASS", "BLOCK"}:
+            raise DomainPayloadError("Watchman check status must be PASS or BLOCK")
+        _require_string(check, "reason")
+    constraints = value.get("capability_constraints")
+    if result == "AUTHORIZE":
+        if not isinstance(constraints, dict):
+            raise DomainPayloadError("AUTHORIZE requires capability_constraints")
+        _require_string(constraints, "capability")
+        _require_string(constraints, "instrument")
+        side = _require_string(constraints, "side")
+        if side not in {"BUY", "SELL"}:
+            raise DomainPayloadError("capability constraint side must be BUY or SELL")
+        _require_string(constraints, "quantity")
+        _require_string(constraints, "idempotency_key")
+        if any(check.get("status") == "BLOCK" for check in checks):
+            raise DomainPayloadError("AUTHORIZE cannot contain a blocking check")
+        expires_at = _parse_timestamp(value, "expires_at")
+        if expires_at is None:
+            raise DomainPayloadError("AUTHORIZE requires expires_at")
+    else:
+        if constraints is not None:
+            raise DomainPayloadError("BLOCK must not carry executable capability_constraints")
+        if not any(check.get("status") == "BLOCK" for check in checks):
+            raise DomainPayloadError("BLOCK requires at least one blocking check")
+        _parse_timestamp(value, "expires_at", nullable=True)
+    _parse_timestamp(value, "evaluated_at")
+    return value
+
+
 def validate_journal_commitment(payload: bytes) -> Mapping[str, Any]:
     value = _object(payload)
     if value.get("schema_version") != "1.0":
@@ -219,6 +268,22 @@ def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mappi
         expires_at = _parse_timestamp(value, "expires_at")
         if expires_at != envelope.valid_until:
             raise DomainPayloadError("Benjamin expires_at must equal envelope valid_until")
+        return value
+    if envelope.event_type in {"WATCHMAN.AUTHORIZATION", "WATCHMAN.BLOCK"}:
+        value = validate_watchman_governance(payload)
+        if value["governance_id"] != envelope.subject_id:
+            raise DomainPayloadError("Watchman governance_id must equal envelope subject_id")
+        expected_result = "AUTHORIZE" if envelope.event_type == "WATCHMAN.AUTHORIZATION" else "BLOCK"
+        if value["result"] != expected_result:
+            raise DomainPayloadError("Watchman result does not match event type")
+        if value["decision_receipt_id"] != envelope.causation_receipt_id:
+            raise DomainPayloadError("Watchman decision_receipt_id must equal primary causation receipt")
+        evaluated_at = _parse_timestamp(value, "evaluated_at")
+        if evaluated_at != envelope.known_at or evaluated_at != envelope.occurred_at:
+            raise DomainPayloadError("Watchman evaluated_at must equal envelope occurred_at and known_at")
+        expires_at = _parse_timestamp(value, "expires_at", nullable=True)
+        if expected_result == "AUTHORIZE" and expires_at != envelope.valid_until:
+            raise DomainPayloadError("Watchman authorization expiry must equal envelope valid_until")
         return value
     if envelope.event_type in {"ZLJ.JOURNAL_COMMITMENT", "BENJAMIN.JOURNAL_COMMITMENT"}:
         value = validate_journal_commitment(payload)

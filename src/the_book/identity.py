@@ -90,6 +90,45 @@ class AuthorityRegistry:
         return True
 
 
+def _sign(
+    signer: Ed25519ProducerSigner,
+    *,
+    schema_version: str,
+    receipt_id: str,
+    event_type: str,
+    evidence_class: EvidenceClass,
+    subject_id: str,
+    occurred_at: datetime,
+    payload_digest: str,
+    privacy_class: PrivacyClass,
+    visibility_scope: tuple[str, ...],
+    payload_ref: str | None,
+    correlation_id: str | None,
+    causation_receipt_id: str | None,
+    evidence_receipt_ids: tuple[str, ...],
+) -> EvidenceEnvelope:
+    unsigned = EvidenceEnvelope(
+        schema_version=schema_version,
+        receipt_id=receipt_id,
+        producer=signer.producer,
+        producer_key_id=signer.key_id,
+        event_type=event_type,
+        evidence_class=evidence_class,
+        subject_id=subject_id,
+        occurred_at=occurred_at,
+        payload_digest=payload_digest,
+        payload_ref=payload_ref,
+        correlation_id=correlation_id,
+        causation_receipt_id=causation_receipt_id,
+        signature="PENDING",
+        privacy_class=privacy_class,
+        visibility_scope=visibility_scope,
+        evidence_receipt_ids=evidence_receipt_ids,
+    )
+    signature = signer.sign(canonical_json(unsigned.signing_body()))
+    return replace(unsigned, signature=signature)
+
+
 def sign_evidence(
     signer: Ed25519ProducerSigner,
     *,
@@ -105,23 +144,55 @@ def sign_evidence(
     correlation_id: str | None = None,
     causation_receipt_id: str | None = None,
 ) -> EvidenceEnvelope:
-    """Sign a v1.1 proof envelope, including privacy and visibility in the signature."""
-    unsigned = EvidenceEnvelope(
+    """Sign a legacy-compatible v1.1 proof envelope."""
+    return _sign(
+        signer,
         schema_version="1.1",
         receipt_id=receipt_id,
-        producer=signer.producer,
-        producer_key_id=signer.key_id,
         event_type=event_type,
         evidence_class=evidence_class,
         subject_id=subject_id,
         occurred_at=occurred_at,
         payload_digest=payload_digest,
+        privacy_class=privacy_class,
+        visibility_scope=visibility_scope,
         payload_ref=payload_ref,
         correlation_id=correlation_id,
         causation_receipt_id=causation_receipt_id,
-        signature="PENDING",
+        evidence_receipt_ids=(),
+    )
+
+
+def sign_evidence_v2(
+    signer: Ed25519ProducerSigner,
+    *,
+    receipt_id: str,
+    event_type: str,
+    evidence_class: EvidenceClass,
+    subject_id: str,
+    occurred_at: datetime,
+    payload_digest: str,
+    privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE,
+    visibility_scope: tuple[str, ...] = ("INSTITUTION",),
+    payload_ref: str | None = None,
+    correlation_id: str | None = None,
+    causation_receipt_id: str | None = None,
+    evidence_receipt_ids: tuple[str, ...] = (),
+) -> EvidenceEnvelope:
+    """Sign a Protocol v2 envelope with explicit additional evidence dependencies."""
+    return _sign(
+        signer,
+        schema_version="2.0",
+        receipt_id=receipt_id,
+        event_type=event_type,
+        evidence_class=evidence_class,
+        subject_id=subject_id,
+        occurred_at=occurred_at,
+        payload_digest=payload_digest,
         privacy_class=privacy_class,
         visibility_scope=visibility_scope,
+        payload_ref=payload_ref,
+        correlation_id=correlation_id,
+        causation_receipt_id=causation_receipt_id,
+        evidence_receipt_ids=evidence_receipt_ids,
     )
-    signature = signer.sign(canonical_json(unsigned.signing_body()))
-    return replace(unsigned, signature=signature)

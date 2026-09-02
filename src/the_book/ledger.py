@@ -26,6 +26,10 @@ class InvalidCausation(EvidenceLedgerError):
     pass
 
 
+class InvalidEvidenceDependency(EvidenceLedgerError):
+    pass
+
+
 class PayloadDigestMismatch(EvidenceLedgerError):
     pass
 
@@ -72,6 +76,16 @@ class BigBook:
             raise PayloadDigestMismatch("payload does not match declared digest")
         if envelope.causation_receipt_id and envelope.causation_receipt_id not in self._receipt_ids:
             raise InvalidCausation("causation receipt must already exist in the Big Book")
+        missing_dependencies = [
+            receipt_id
+            for receipt_id in envelope.evidence_receipt_ids
+            if receipt_id not in self._receipt_ids
+        ]
+        if missing_dependencies:
+            raise InvalidEvidenceDependency(
+                "evidence dependencies must already exist in the Big Book: "
+                + ", ".join(missing_dependencies)
+            )
 
         timestamp = recorded_at or datetime.now(timezone.utc)
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
@@ -136,6 +150,8 @@ class BigBook:
             if entry.envelope.receipt_id in seen:
                 return False
             if entry.envelope.causation_receipt_id and entry.envelope.causation_receipt_id not in seen:
+                return False
+            if any(receipt_id not in seen for receipt_id in entry.envelope.evidence_receipt_ids):
                 return False
             if not self._registry.verify(entry.envelope):
                 return False

@@ -100,6 +100,17 @@ class BigBook:
             except DomainPayloadError as exc:
                 raise InvalidDomainPayload(str(exc)) from exc
 
+    def _validate_typed_causation(self, envelope: EvidenceEnvelope) -> None:
+        """Enforce causal organ boundaries that require ledger context."""
+        if envelope.event_type in {"WATCHMAN.AUTHORIZATION", "WATCHMAN.BLOCK"}:
+            if envelope.causation_receipt_id is None:
+                raise InvalidCausation("Watchman governance requires a Benjamin decision causation receipt")
+            parent = self._receipt_index.get(envelope.causation_receipt_id)
+            if parent is None or parent.envelope.event_type != "BENJAMIN.DECISION":
+                raise InvalidCausation(
+                    "Watchman governance must causally reference an existing BENJAMIN.DECISION receipt"
+                )
+
     def append(
         self,
         envelope: EvidenceEnvelope,
@@ -114,6 +125,7 @@ class BigBook:
         self._validate_payload(envelope, payload)
         if envelope.causation_receipt_id and envelope.causation_receipt_id not in self._receipt_ids:
             raise InvalidCausation("causation receipt must already exist in the Big Book")
+        self._validate_typed_causation(envelope)
         missing_dependencies = [
             receipt_id
             for receipt_id in envelope.evidence_receipt_ids
@@ -168,6 +180,7 @@ class BigBook:
                     f"receipt id {envelope.receipt_id!r} already belongs to different evidence"
                 )
             self._validate_payload(envelope, payload)
+            self._validate_typed_causation(envelope)
             return BookReceipt(
                 receipt_id=existing.envelope.receipt_id,
                 sequence=existing.sequence,
@@ -228,6 +241,11 @@ class BigBook:
                 return False
             if entry.envelope.causation_receipt_id and entry.envelope.causation_receipt_id not in seen:
                 return False
+            if entry.envelope.event_type in {"WATCHMAN.AUTHORIZATION", "WATCHMAN.BLOCK"}:
+                parent_id = entry.envelope.causation_receipt_id
+                parent = self._receipt_index.get(parent_id) if parent_id else None
+                if parent is None or parent.envelope.event_type != "BENJAMIN.DECISION":
+                    return False
             if any(receipt_id not in seen for receipt_id in entry.envelope.evidence_receipt_ids):
                 return False
             if entry.envelope.schema_version == "2.0" and entry.envelope.produced_at is not None:

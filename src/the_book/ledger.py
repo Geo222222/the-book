@@ -7,6 +7,7 @@ from .anchor import merkle_root
 from .canonical import canonical_json, sha256_hex
 from .domain import EvidenceEnvelope, LedgerEntry, PrivacyClass
 from .identity import AuthorityRegistry
+from .payload_contracts import DomainPayloadError, validate_target_payload
 from .privacy import can_view, require_view
 
 
@@ -31,6 +32,10 @@ class InvalidEvidenceDependency(EvidenceLedgerError):
 
 
 class InvalidRecordingTime(EvidenceLedgerError):
+    pass
+
+
+class InvalidDomainPayload(EvidenceLedgerError):
     pass
 
 
@@ -76,8 +81,13 @@ class BigBook:
             raise SecretPayloadRejected(
                 "SECRET_REGULATED source material must be hashed in its restricted system; raw bytes may not enter The Book"
             )
-        if payload is not None and sha256_hex(payload) != envelope.payload_digest:
-            raise PayloadDigestMismatch("payload does not match declared digest")
+        if payload is not None:
+            if sha256_hex(payload) != envelope.payload_digest:
+                raise PayloadDigestMismatch("payload does not match declared digest")
+            try:
+                validate_target_payload(envelope, payload)
+            except DomainPayloadError as exc:
+                raise InvalidDomainPayload(str(exc)) from exc
         if envelope.causation_receipt_id and envelope.causation_receipt_id not in self._receipt_ids:
             raise InvalidCausation("causation receipt must already exist in the Big Book")
         missing_dependencies = [

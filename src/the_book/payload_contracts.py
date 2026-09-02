@@ -73,6 +73,18 @@ def _require_positive_int(value: Mapping[str, Any], field: str) -> int:
     return item
 
 
+def _require_hex_digest(value: Mapping[str, Any], field: str) -> str:
+    item = _require_string(value, field)
+    assert item is not None
+    if len(item) != 64:
+        raise DomainPayloadError(f"{field} must be a 64-character SHA-256 hex digest")
+    try:
+        int(item, 16)
+    except ValueError as exc:
+        raise DomainPayloadError(f"{field} must be hexadecimal") from exc
+    return item.lower()
+
+
 def _parse_timestamp(value: Mapping[str, Any], field: str, *, nullable: bool = False) -> datetime | None:
     item = value.get(field)
     if item is None and nullable:
@@ -157,6 +169,29 @@ def validate_benjamin_decision(payload: bytes) -> Mapping[str, Any]:
     return value
 
 
+def validate_journal_commitment(payload: bytes) -> Mapping[str, Any]:
+    value = _object(payload)
+    if value.get("schema_version") != "1.0":
+        raise DomainPayloadError("journal commitment schema_version must be 1.0")
+    _require_string(value, "journal_id")
+    _require_string(value, "record_type")
+    if value.get("ordering") != "PRODUCER_SEQUENCE":
+        raise DomainPayloadError("journal ordering must be PRODUCER_SEQUENCE")
+    _require_string(value, "first_record_id")
+    _require_string(value, "last_record_id")
+    _require_positive_int(value, "record_count")
+    _require_hex_digest(value, "merkle_root")
+    period_start = _parse_timestamp(value, "period_start")
+    period_end = _parse_timestamp(value, "period_end")
+    sealed_at = _parse_timestamp(value, "sealed_at")
+    _require_string(value, "source_ref")
+    if period_start is not None and period_end is not None and period_end < period_start:
+        raise DomainPayloadError("journal period_end cannot be before period_start")
+    if period_end is not None and sealed_at is not None and sealed_at < period_end:
+        raise DomainPayloadError("journal sealed_at cannot be before period_end")
+    return value
+
+
 def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mapping[str, Any] | None:
     """Validate target v2 payloads without deciding their economic truth."""
     if envelope.schema_version != "2.0":
@@ -184,5 +219,16 @@ def validate_target_payload(envelope: EvidenceEnvelope, payload: bytes) -> Mappi
         expires_at = _parse_timestamp(value, "expires_at")
         if expires_at != envelope.valid_until:
             raise DomainPayloadError("Benjamin expires_at must equal envelope valid_until")
+        return value
+    if envelope.event_type in {"ZLJ.JOURNAL_COMMITMENT", "BENJAMIN.JOURNAL_COMMITMENT"}:
+        value = validate_journal_commitment(payload)
+        if value["journal_id"] != envelope.subject_id:
+            raise DomainPayloadError("journal_id must equal envelope subject_id")
+        expected_prefix = "ZLJ." if envelope.event_type.startswith("ZLJ.") else "BENJAMIN."
+        if not value["record_type"].startswith(expected_prefix):
+            raise DomainPayloadError("journal record_type must belong to the producer domain")
+        sealed_at = _parse_timestamp(value, "sealed_at")
+        if sealed_at != envelope.occurred_at:
+            raise DomainPayloadError("journal sealed_at must equal envelope occurred_at")
         return value
     return None

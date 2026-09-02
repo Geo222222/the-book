@@ -106,6 +106,11 @@ def _sign(
     correlation_id: str | None,
     causation_receipt_id: str | None,
     evidence_receipt_ids: tuple[str, ...],
+    source_event_at: datetime | None,
+    known_at: datetime | None,
+    produced_at: datetime | None,
+    valid_from: datetime | None,
+    valid_until: datetime | None,
 ) -> EvidenceEnvelope:
     unsigned = EvidenceEnvelope(
         schema_version=schema_version,
@@ -124,6 +129,11 @@ def _sign(
         privacy_class=privacy_class,
         visibility_scope=visibility_scope,
         evidence_receipt_ids=evidence_receipt_ids,
+        source_event_at=source_event_at,
+        known_at=known_at,
+        produced_at=produced_at,
+        valid_from=valid_from,
+        valid_until=valid_until,
     )
     signature = signer.sign(canonical_json(unsigned.signing_body()))
     return replace(unsigned, signature=signature)
@@ -160,6 +170,11 @@ def sign_evidence(
         correlation_id=correlation_id,
         causation_receipt_id=causation_receipt_id,
         evidence_receipt_ids=(),
+        source_event_at=None,
+        known_at=None,
+        produced_at=None,
+        valid_from=None,
+        valid_until=None,
     )
 
 
@@ -171,6 +186,8 @@ def sign_evidence_v2(
     evidence_class: EvidenceClass,
     subject_id: str,
     occurred_at: datetime,
+    known_at: datetime,
+    produced_at: datetime,
     payload_digest: str,
     privacy_class: PrivacyClass = PrivacyClass.CONFIDENTIAL_EVIDENCE,
     visibility_scope: tuple[str, ...] = ("INSTITUTION",),
@@ -178,8 +195,11 @@ def sign_evidence_v2(
     correlation_id: str | None = None,
     causation_receipt_id: str | None = None,
     evidence_receipt_ids: tuple[str, ...] = (),
+    source_event_at: datetime | None = None,
+    valid_from: datetime | None = None,
+    valid_until: datetime | None = None,
 ) -> EvidenceEnvelope:
-    """Sign a Protocol v2 envelope with explicit additional evidence dependencies."""
+    """Sign a Protocol v2 envelope with dependency and knowability semantics."""
     return _sign(
         signer,
         schema_version="2.0",
@@ -195,4 +215,9 @@ def sign_evidence_v2(
         correlation_id=correlation_id,
         causation_receipt_id=causation_receipt_id,
         evidence_receipt_ids=evidence_receipt_ids,
+        source_event_at=source_event_at,
+        known_at=known_at,
+        produced_at=produced_at,
+        valid_from=valid_from,
+        valid_until=valid_until,
     )

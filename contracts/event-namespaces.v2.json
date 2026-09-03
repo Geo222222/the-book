@@ -1,0 +1,92 @@
+{
+  "schema_version": "2.0",
+  "namespaces": [
+    {
+      "prefix": "ZLJ.",
+      "producer": "ZLJ",
+      "authority": "market perception, model production, prediction, calibration, and model/data-quality evidence"
+    },
+    {
+      "prefix": "BENJAMIN.",
+      "producer": "Benjamin",
+      "authority": "capital decision intelligence, decision evaluation, and Benjamin-owned competence/procedure evidence"
+    },
+    {
+      "prefix": "WATCHMAN.",
+      "producer": "Watchman",
+      "authority": "governance, policy, risk/limit evaluation, authorization, block, revocation, and capability constraints"
+    },
+    {
+      "prefix": "HAND.",
+      "producer": "The Hand",
+      "authority": "authorized capability invocation, external execution, provider response, settlement, and reconciliation evidence"
+    },
+    {
+      "prefix": "INSTITUTION.",
+      "producer": "Institution",
+      "authority": "institution-wide authority, capital/accounting, ownership, disclosure, and other explicitly governed institutional facts"
+    },
+    {
+      "prefix": "MARTIANS.",
+      "producer": "The Martians",
+      "authority": "stewardship, contribution, entitlement, covenant, and family-network domain facts"
+    }
+  ],
+  "target_event_families": {
+    "ZLJ": [
+      "ZLJ.INTELLIGENCE",
+      "ZLJ.PREDICTION",
+      "ZLJ.MODEL_QUALIFICATION",
+      "ZLJ.CALIBRATION",
+      "ZLJ.DATA_QUALITY_INCIDENT",
+      "ZLJ.EVALUATION",
+      "ZLJ.JOURNAL_COMMITMENT"
+    ],
+    "Benjamin": [
+      "BENJAMIN.DECISION",
+      "BENJAMIN.DECISION_SUPERSEDED",
+      "BENJAMIN.DECISION_EVALUATION",
+      "BENJAMIN.COMPETENCE_CHANGE",
+      "BENJAMIN.PROCEDURE_VERSION",
+      "BENJAMIN.JOURNAL_COMMITMENT"
+    ],
+    "Watchman": [
+      "WATCHMAN.AUTHORIZATION",
+      "WATCHMAN.BLOCK",
+      "WATCHMAN.REVOCATION",
+      "WATCHMAN.POLICY_COMMITMENT"
+    ],
+    "The Hand": [
+      "HAND.ACTION_ACCEPTED",
+      "HAND.ACTION_REJECTED",
+      "HAND.EXECUTION",
+      "HAND.FILL",
+      "HAND.SETTLEMENT",
+      "HAND.RECONCILIATION"
+    ],
+    "Institution": [
+      "INSTITUTION.CAPITAL_STATE",
+      "INSTITUTION.ACCOUNTING",
+      "INSTITUTION.OWNERSHIP",
+      "INSTITUTION.AUTHORITY",
+      "INSTITUTION.DISCLOSURE"
+    ]
+  },
+  "legacy_namespaces": {
+    "BENJAMIN.RISK": {
+      "historical_semantics": "B1 Watchman-role risk/governance evaluation emitted under the Benjamin namespace",
+      "target_owner": "Watchman",
+      "rewrite_forbidden": true
+    },
+    "BENJAMIN.AUTHORIZATION": {
+      "historical_semantics": "B1 bounded execution authorization-stage evidence emitted under the Benjamin namespace",
+      "target_owner": "Watchman",
+      "rewrite_forbidden": true
+    },
+    "EPINNOX.RECOMMENDATION": {
+      "historical_semantics": "legacy recommendation evidence predating the ZLJ/Benjamin target bridge",
+      "target_owner": "preserve historical producer semantics; do not reinterpret automatically",
+      "rewrite_forbidden": true
+    }
+  }
+}

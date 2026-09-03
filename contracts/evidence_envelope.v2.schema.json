@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-book.local/contracts/evidence-envelope/2.0",
+  "title": "EvidenceEnvelopeV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "producer",
+    "producer_key_id",
+    "event_type",
+    "evidence_class",
+    "privacy_class",
+    "visibility_scope",
+    "subject_id",
+    "occurred_at",
+    "source_event_at",
+    "known_at",
+    "produced_at",
+    "valid_from",
+    "valid_until",
+    "payload_digest",
+    "payload_ref",
+    "correlation_id",
+    "causation_receipt_id",
+    "evidence_receipt_ids",
+    "signature"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "producer": {"type": "string", "minLength": 1},
+    "producer_key_id": {"type": "string", "minLength": 1},
+    "event_type": {"type": "string", "minLength": 1},
+    "evidence_class": {"enum": ["CONSTITUTIONAL", "ECONOMIC", "ANALYTICAL"]},
+    "privacy_class": {
+      "enum": ["PUBLIC_PROOF", "PARTICIPANT_PROOF", "CONFIDENTIAL_EVIDENCE", "SECRET_REGULATED"]
+    },
+    "visibility_scope": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "subject_id": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "source_event_at": {"type": ["string", "null"], "format": "date-time"},
+    "known_at": {"type": "string", "format": "date-time"},
+    "produced_at": {"type": "string", "format": "date-time"},
+    "valid_from": {"type": ["string", "null"], "format": "date-time"},
+    "valid_until": {"type": ["string", "null"], "format": "date-time"},
+    "payload_digest": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "payload_ref": {"type": ["string", "null"]},
+    "correlation_id": {"type": ["string", "null"]},
+    "causation_receipt_id": {"type": ["string", "null"]},
+    "evidence_receipt_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "signature": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"privacy_class": {"const": "PUBLIC_PROOF"}}},
+      "then": {"properties": {"visibility_scope": {"contains": {"const": "PUBLIC"}}}}
+    },
+    {
+      "if": {"properties": {"privacy_class": {"enum": ["PARTICIPANT_PROOF", "CONFIDENTIAL_EVIDENCE", "SECRET_REGULATED"]}}},
+      "then": {"properties": {"visibility_scope": {"not": {"contains": {"const": "PUBLIC"}}}}}
+    }
+  ]
+}

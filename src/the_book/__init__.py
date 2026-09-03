@@ -1,15 +1,30 @@
 """The Book: private proof history plus public testimony."""
 
-from .anchor import AnchorReceipt, DisabledAnchor, LiveAnchoringDisabled, merkle_root
+from .anchor import AnchorReceipt, DisabledAnchor, LiveAnchoringDisabled, merkle_root, merkle_root_hashes
 from .canonical import canonical_json, sha256_hex
 from .domain import EvidenceClass, EvidenceEnvelope, LedgerEntry, PrivacyClass
-from .identity import AuthorityRegistry, Ed25519ProducerSigner, IdentityError, sign_evidence
+from .identity import AuthorityRegistry, Ed25519ProducerSigner, IdentityError, sign_evidence, sign_evidence_v2
+from .ingest import BookIngestService, WireEnvelopeError, evidence_envelope_from_wire
+from .journal import (
+    JournalCommitment,
+    JournalError,
+    JournalLeaf,
+    MerkleProofNode,
+    journal_leaf,
+    journal_merkle_proof,
+    seal_journal,
+    verify_journal_inclusion,
+)
 from .ledger import (
     BigBook,
+    BookReceipt,
     DuplicateReceipt,
     EvidenceLedger,
     EvidenceLedgerError,
     InvalidCausation,
+    InvalidDomainPayload,
+    InvalidEvidenceDependency,
+    InvalidRecordingTime,
     PayloadDigestMismatch,
     SecretPayloadRejected,
     SignatureRejected,
@@ -24,6 +39,14 @@ from .little_book import (
     StateCommitment,
     verify_public_record,
 )
+from .namespaces import NamespaceAuthority, NamespaceAuthorityError, V2_NAMESPACE_AUTHORITIES
+from .payload_contracts import (
+    DomainPayloadError,
+    validate_benjamin_decision,
+    validate_journal_commitment,
+    validate_target_payload,
+    validate_zlj_intelligence,
+)
 from .privacy import AccessDenied, can_view, require_view
 from .scoped import sign_scoped_evidence
 
@@ -32,9 +55,12 @@ __all__ = [
     "AnchorReceipt",
     "AuthorityRegistry",
     "BigBook",
+    "BookIngestService",
+    "BookReceipt",
     "DisabledAnchor",
     "DisclosurePolicy",
     "DisclosureRejected",
+    "DomainPayloadError",
     "DuplicatePublicRecord",
     "DuplicateReceipt",
     "Ed25519ProducerSigner",
@@ -44,22 +70,44 @@ __all__ = [
     "EvidenceLedgerError",
     "IdentityError",
     "InvalidCausation",
+    "InvalidDomainPayload",
+    "InvalidEvidenceDependency",
+    "InvalidRecordingTime",
+    "JournalCommitment",
+    "JournalError",
+    "JournalLeaf",
     "LedgerEntry",
     "LittleBook",
     "LittleBookError",
     "LiveAnchoringDisabled",
+    "MerkleProofNode",
+    "NamespaceAuthority",
+    "NamespaceAuthorityError",
     "PayloadDigestMismatch",
     "PrivacyClass",
     "PublicAttestation",
     "SecretPayloadRejected",
     "SignatureRejected",
     "StateCommitment",
+    "V2_NAMESPACE_AUTHORITIES",
+    "WireEnvelopeError",
     "can_view",
     "canonical_json",
+    "evidence_envelope_from_wire",
+    "journal_leaf",
+    "journal_merkle_proof",
     "merkle_root",
+    "merkle_root_hashes",
     "require_view",
+    "seal_journal",
     "sha256_hex",
     "sign_evidence",
+    "sign_evidence_v2",
     "sign_scoped_evidence",
+    "validate_benjamin_decision",
+    "validate_journal_commitment",
+    "validate_target_payload",
+    "validate_zlj_intelligence",
+    "verify_journal_inclusion",
     "verify_public_record",
 ]

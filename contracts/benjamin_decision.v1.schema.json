@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-book.local/contracts/benjamin-decision/1.0",
+  "title": "BenjaminDecisionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision_id",
+    "instrument",
+    "action",
+    "side",
+    "horizon_ms",
+    "intended_size",
+    "expected_edge_before_costs_bps",
+    "expected_edge_after_costs_bps",
+    "confidence",
+    "thesis_ref",
+    "invalidation_ref",
+    "capital_state_ref",
+    "position_state_ref",
+    "reasoner_version",
+    "evidence_receipt_ids",
+    "expires_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "decision_id": {"type": "string", "minLength": 1},
+    "instrument": {"type": "string", "minLength": 1},
+    "action": {"enum": ["ENTER", "HOLD", "REDUCE", "EXIT", "NO_TRADE"]},
+    "side": {"enum": ["BUY", "SELL", "NONE"]},
+    "horizon_ms": {"type": "integer", "minimum": 1},
+    "intended_size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit"],
+      "properties": {
+        "value": {"type": "number", "minimum": 0},
+        "unit": {"enum": ["BASE", "QUOTE", "PERCENT_EQUITY", "RISK_FRACTION"]}
+      }
+    },
+    "expected_edge_before_costs_bps": {"type": ["number", "null"]},
+    "expected_edge_after_costs_bps": {"type": ["number", "null"]},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "thesis_ref": {"type": ["string", "null"]},
+    "invalidation_ref": {"type": ["string", "null"]},
+    "capital_state_ref": {"type": "string", "minLength": 1},
+    "position_state_ref": {"type": "string", "minLength": 1},
+    "reasoner_version": {"type": "string", "minLength": 1},
+    "evidence_receipt_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "expires_at": {"type": "string", "format": "date-time"}
+  }
+}

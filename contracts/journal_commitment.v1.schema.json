@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://the-book.local/contracts/journal-commitment/1.0",
+  "title": "JournalCommitmentV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "journal_id",
+    "record_type",
+    "ordering",
+    "first_record_id",
+    "last_record_id",
+    "record_count",
+    "merkle_root",
+    "period_start",
+    "period_end",
+    "sealed_at",
+    "source_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "journal_id": {"type": "string", "minLength": 1},
+    "record_type": {"type": "string", "minLength": 1},
+    "ordering": {"const": "PRODUCER_SEQUENCE"},
+    "first_record_id": {"type": "string", "minLength": 1},
+    "last_record_id": {"type": "string", "minLength": 1},
+    "record_count": {"type": "integer", "minimum": 1},
+    "merkle_root": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+    "period_start": {"type": "string", "format": "date-time"},
+    "period_end": {"type": "string", "format": "date-time"},
+    "sealed_at": {"type": "string", "format": "date-time"},
+    "source_ref": {"type": "string", "minLength": 1}
+  }
+}
